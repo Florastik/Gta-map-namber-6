@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта з ефектом туману</title>
+    <style>
+        /* Стилі для сторінки і карти */
+        body, html {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            position: relative;
+        }
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Щоб не блокувати взаємодію з картою */
+        }
+    </style>
+</head>
+<body>
+    <!-- Карта Google -->
+    <div id="map"></div>
+    <!-- Canvas для затемнення -->
+    <canvas id="canvas"></canvas>
+
+    <script>
+        let map;
+        let userMarker;
+        let fogRadius = 300; // Радіус видимої області в пікселях
+
+        function initMap() {
+            // Створюємо карту
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 50.4501, lng: 30.5234 }, // Київ
+                zoom: 15,
+                disableDefaultUI: true, // Прибираємо стандартний інтерфейс
+                styles: [{ elementType: 'geometry', stylers: [{ color: '#000000' }] }] // Чорна карта
+            });
+
+            // Створюємо мітку користувача
+            userMarker = new google.maps.Marker({
+                position: { lat: 50.4501, lng: 30.5234 },
+                map: map,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 7,
+                    fillColor: '#00FF00',
+                    fillOpacity: 1,
+                    strokeWeight: 1
+                }
+            });
+
+            // Оновлюємо карту при зміні місцезнаходження
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(position => {
+                    const pos = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    // Оновлюємо позицію мітки користувача
+                    userMarker.setPosition(pos);
+                    map.setCenter(pos);
+
+                    // Оновлюємо ефект затемнення
+                    drawFog(pos);
+                });
+            }
+        }
+
+        function drawFog(pos) {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Очищаємо canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Малюємо чорний фон (туман)
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Малюємо прозоре коло навколо користувача
+            const scale = Math.pow(2, map.getZoom()); // Масштаб залежно від зуму
+            const center = map.getProjection().fromLatLngToPoint(new google.maps.LatLng(pos.lat, pos.lng));
+            const canvasCenter = {
+                x: (center.x - map.getProjection().fromLatLngToPoint(map.getBounds().getSouthWest()).x) * canvas.width,
+                y: (center.y - map.getProjection().fromLatLngToPoint(map.getBounds().getNorthEast()).y) * canvas.height
+            };
+            const radius = fogRadius * scale;
+
+            ctx.globalCompositeOperation = 'destination-out'; // Вирізаємо коло з туману
+            ctx.beginPath();
+            ctx.arc(canvasCenter.x, canvasCenter.y, radius, 0, Math.PI * 2, true);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // Оновлюємо розмір Canvas при зміні розміру вікна
+        window.addEventListener('resize', () => {
+            const canvas = document.getElementById('canvas');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // Ініціалізуємо карту
+        window.initMap = initMap;
+    </script>
+
+    <!-- API ключ Google Maps (вставте свій) -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAGuN7hfbdV7Swizh9JNHEiH34mJ6WynKQ&callback=initMap" async defer></script>
+</body>
+</html>
